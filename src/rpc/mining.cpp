@@ -731,6 +731,17 @@ static UniValue getblocktemplate_impl(const std::string &strMode, const UniValue
     UniValue result(UniValue::VOBJ);
     result.pushKV("capabilities", aCaps);
 
+    // --- SHA256D: inserts coinbase for stratum proxy ---
+    if constexpr (nPoWType == CBlockHeader::SHA256D_BLOCK) {
+        UniValue coinbasetxn(UniValue::VOBJ);
+        CDataStream ssCb(SER_NETWORK, PROTOCOL_VERSION | RPCSerializationFlags());
+        ssCb << *pblock->vtx[0];
+        coinbasetxn.pushKV("data", HexStr(ssCb.begin(), ssCb.end()));
+        result.pushKV("coinbasetxn", coinbasetxn);
+
+        aMutable.push_back("coinbase/append");
+    }
+
     UniValue aRules(UniValue::VARR);
     UniValue vbavailable(UniValue::VOBJ);
     for (int j = 0; j < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; ++j) {
@@ -816,6 +827,11 @@ static UniValue getblocktemplate_impl(const std::string &strMode, const UniValue
 
     result.pushKV("accumulatorhashes", mapaccumulatorhashes);
     result.pushKV("proofoffullnodehash", pblock->hashPoFN.GetHex());
+
+    // --- additional fields for proxy ---
+    result.pushKV("hashaccumulators", pblock->hashAccumulators.GetHex());
+    result.pushKV("veildatahash",     pblock->hashVeilData.GetHex());
+
     result.pushKV("mining_disabled", (!CheckConsecutivePoW(*pblock , pindexPrev))? true : false );
 
     if constexpr (nPoWType == CBlockHeader::PROGPOW_BLOCK) {      // if (pblock->IsProgPow()) {
